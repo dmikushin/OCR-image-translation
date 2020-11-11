@@ -1,6 +1,7 @@
 from PIL import Image
 import pytesseract
 import os
+import sys
 import subprocess
 from googletrans import Translator
 
@@ -14,6 +15,7 @@ class Translation:
         self.extract_img = extract_img
         self.extract_file = extract_file
         self.translate_file = translate_file
+        self.translator = Translator()
 
     def extract_image_text(self):
         #https://github.com/tesseract-ocr/tesseract/wiki/Data-Files
@@ -21,12 +23,13 @@ class Translation:
         #i.e. code 'fra' = French; 'sqi' = Albanian; 'eng' = English
         pytesseract_image_language = self.pytesseract_image_language
         img = Image.open(self.extract_img)
-        text = pytesseract.image_to_string(img, lang=pytesseract_image_language).encode('utf-8')
+        text = pytesseract.image_to_string(img, lang=pytesseract_image_language)
         text = text.replace('\n', '\n ')
         text = text.replace('\n', '')
         text = text.replace('.', '.\n')
         text = text.replace('!', '!\n')
         text = text.replace('?', '?\n')
+        print(text)
         return text
 
     def translate_image_text(self, text):
@@ -34,12 +37,9 @@ class Translation:
         #http://py-googletrans.readthedocs.io/en/latest/
         #Note: type print(googletrans.LANGUAGES) to see supported languages
         # i.e. 'fr' = French; 'sq' = Albanian; 'en' = English
-        translator = Translator()
-        from_language = self.from_language
-        to_language = self.to_language
-        translation = translator.translate(text, 
-            src=from_language, dest=to_language).text.encode("utf-8")
-        return translation
+        translation = self.translator.translate(text, 
+            src=self.from_language, dest=self.to_language)
+        return translation.text
 
     def write_image_text(self):
         f = open(self.extract_file, 'w')
@@ -63,19 +63,27 @@ class Translation:
 
     
 if __name__ == "__main__":
-    mypath =  os.path.dirname(os.path.abspath(__file__))
-    for f in os.listdir(mypath):
-        if f.endswith(".png"):
-            pytesseract_image_language = 'fra'
-            from_language = 'fr'
-            to_language = 'en'
-            extract_img = "{}".format(f)
-            extract_file = "{}.txt".format(os.path.splitext(f)[0])
-            translate_file = "translated_{}.txt".format(os.path.splitext(f)[0])
-            t=Translation()
-            t.extract_image_text()
-            t.write_image_text()
-            t.write_translation()
-            t.remove_extract_file()
-            #t.view_translation()
-            print('done')
+    if len(sys.argv) == 1:
+        print("Usage: ./ocrtrans <folder_path>")
+        sys.exit(0)
+
+    path = sys.argv[1]
+    pytesseract_image_language = 'fra'
+    from_language = 'fr'
+    to_language = 'en'
+
+    for dirpath, _, filenames in os.walk(path):
+        for filename in sorted(filenames):
+            f = os.path.abspath(os.path.join(dirpath, filename))
+            if f.endswith(".jpeg"):
+                extract_img = "{}".format(f)
+                extract_file = os.path.join(dirpath, "{}.txt".format(filename))
+                translate_file = os.path.join(dirpath, "{}_translated.txt".format(filename))
+                t=Translation()
+                t.extract_image_text()
+                #t.write_image_text()
+                #t.write_translation()
+                #t.remove_extract_file()
+                #t.view_translation()
+                print("{} OK".format(f))
+
